@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>calibration</name>
+  <version>0.0.0</version>
+  <description>calibration_plugin Panel for rviz2</description>
+  <maintainer email="eddy.sun@robosense.cn">sti</maintainer>
+  <license>Apache-2.0</license>
+
+  <build_depend>qtbase5-dev</build_depend>
+  <build_depend>qt5-qmake</build_depend>
+  <build_depend>pcl_conversions</build_depend>
+  <build_depend>image_transport</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <exec_depend>libqt5-core</exec_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rviz_common</depend>
+  <depend>libqt5-widgets</depend>
+  <depend>rviz2</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

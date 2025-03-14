@@ -1,0 +1,11 @@
+- ch_april_board_type: 1
+  family: tagStandard41h12 # tagStandard41h12
+  ch_april_layout: [5, 5] #[rows, columns]
+  chess_len: 229 # chessboard edge length [mm]
+  board_size: [1201, 1201] # whole board size [height, width]
+  board_vertex_offset: [[195, 178.5], [195, 178.5], [195, 178.5], [195, 178.5]] # [left top, left down, right down, right top], [y_offset, x_offset]
+  april_tag_range: [104, 116] # [start id, end id]
+  min_valid_tag_num: 1
+  tag_size: 96 # mm
+  tag_spacing: 0.25 # rate
+  tag_area_threshold: 500

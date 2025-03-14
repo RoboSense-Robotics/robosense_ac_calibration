@@ -1,0 +1,7 @@
+<library path="calibration">
+  <class name="calibration/Camera Intrinsics Calibration" type="rs_calibration_plugin::RSCalibration" base_class_type="rviz_common::Panel">
+    <description>
+      A simple Hello World panel for RViz2.
+    </description>
+  </class>
+</library>

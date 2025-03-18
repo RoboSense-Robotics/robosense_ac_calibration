@@ -1,10 +1,10 @@
-# calibration
+# Robosense AC Calibration
 
 [中文文档](README_CN.md)
 
 ## 1. Introduction
 
-**calibration** is designed to provide camera intrinsic calibration and camera-lidar extrinsic calibration.
+**Robosense AC Calibration** is designed to provide camera intrinsic calibration and camera-lidar extrinsic calibration for Robosense Active Camera.
 
 ## 2. Prerequisites
 
@@ -21,15 +21,15 @@ sudo apt install libceres-dev
 You can create a new folder or navigate to your existing `ros2` workspace. Then, execute the following command to clone the code into your workspace.
 
 ```bash
-git clone git@gitlab.robosense.cn:super_sensor_sdk/ros2_sdk/calibration.git -b main
+git clone https://github.com/RoboSense-Robotics/robosense_ac_calibration.git -b main
 ```
 
 ### 3.2 Build
 
-In your workspace, execute the following command to build and install calibration.
+In your workspace, execute the following command to build and install robosense_ac_calibration.
 
 ```bash
-colcon build
+colcon build --packages-select robosense_ac_calibration
 ```
 
 After the build is complete, it is recommended to refresh your workspace's `bash profile` to ensure the components function correctly.
@@ -57,7 +57,7 @@ Calibration Board Specifications: Users are recommended to create the calibratio
 ### 5.1 Rviz Visualization
 
 ```bash
-rviz2 -d src/calibration/config/default.rviz
+rviz2 -d src/robosense_ac_calibration/config/default.rviz
 ```
 
 <div align="center">
@@ -90,8 +90,8 @@ rviz2 -d src/calibration/config/default.rviz
   - Expected accuracy ​within 1.0 pixel.  
 
 - ​**References**:  
-  - [Demo Video](https://cdn.robosense.cn/AC1Sensor%E5%88%B0%E8%BD%A6%E4%BD%93%E6%A0%87%E5%AE%9A.mp4)  
-  - [Sample Data](https://cdn.robosense.cn/AC1camera_intrinsics_calib.zip)  
+  - [Demo Video](https://cdn.robosense.cn/AC_wiki/camera_intrinsics_calib.mp4)  
+  - [Sample Data](https://cdn.robosense.cn/AC_wiki/camera_intrinsics_calib.zip)
 
 ---
 
@@ -115,8 +115,8 @@ rviz2 -d src/calibration/config/default.rviz
   - Expected accuracy within 0.3°.  
 
 - ​**Reference**:  
-  - [Sample Data](https://cdn.robosense.cn/AC1camera_lidar_calib.zip)  
+  - [Sample Data](https://cdn.robosense.cn/AC_wiki/camera_lidar_calib.zip)
 
 ## 6. FAQ
 
-[Create New Issue](http://gitlab.robosense.cn/super_sensor_sdk/ros2_sdk/calibration/-/issues/new)
+[Create New Issue](https://github.com/RoboSense-Robotics/robosense_ac_calibration/issues/new)

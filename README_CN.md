@@ -1,10 +1,10 @@
-# calibration
+# Robosense AC Calibration
 
 [README](README.md) | [中文文档](README_CN.md)
 
 ## 1. 简介
 
-**calibration** 用于提供相机内参标定及相机-雷达外参标定
+**Robosense AC Calibration** 用于提供速腾Active Camera的相机内参标定及相机-雷达外参标定
 
 ## 2. 前置依赖
 
@@ -21,15 +21,15 @@ sudo apt install libceres-dev
 您可以创建一个新的文件夹或进入您现有的 `ros2` 工作空间，执行以下命令将代码拉取到工作空间内
 
 ```bash
-git clone git@gitlab.robosense.cn:super_sensor_sdk/ros2_sdk/calibration.git -b main
+git clone https://github.com/RoboSense-Robotics/robosense_ac_calibration.git -b main
 ```
 
 ### 3.2 编译
 
-在您的工作空间下执行以下命令来编译安装 `calibration`
+在您的工作空间下执行以下命令来编译安装 `robosense_ac_calibration`
 
 ```bash
-colcon build
+colcon build --packages-select robosense_ac_calibration
 ```
 
 编译安装完成后，推荐刷新一下工作空间的 `bash profile`，确保组件功能正常
@@ -57,7 +57,7 @@ source install/setup.bash
 ### 5.1 Rviz 可视化
 
 ```bash
-rviz2 -d src/calibration/config/default.rviz
+rviz2 -d src/robosense_ac_calibration/config/default.rviz
 ```
 
 <div align="center">
@@ -90,8 +90,8 @@ rviz2 -d src/calibration/config/default.rviz
   - 预期标定精度在1.0像素以内。  
 
 - ​**参考资源**：  
-  - [示例视频](https://cdn.robosense.cn/AC1Sensor%E5%88%B0%E8%BD%A6%E4%BD%93%E6%A0%87%E5%AE%9A.mp4)  
-  - [Demo数据包](https://cdn.robosense.cn/AC1camera_intrinsics_calib.zip)  
+  - [示例视频](https://cdn.robosense.cn/AC_wiki/camera_intrinsics_calib.mp4)  
+  - [Demo数据包](https://cdn.robosense.cn/AC_wiki/camera_intrinsics_calib.zip)
 
 ### 5.4 相机-雷达外参标定
 
@@ -113,8 +113,8 @@ rviz2 -d src/calibration/config/default.rviz
   - 预期标定精度在0.3°以内。  
 
 - ​**参考资源**：  
-  - [Demo数据包](https://cdn.robosense.cn/AC1camera_lidar_calib.zip)  
+  - [Demo数据包](https://cdn.robosense.cn/AC_wiki/camera_lidar_calib.zip)
 
 ## 6. FAQ
 
-[Create New Issue](http://gitlab.robosense.cn/super_sensor_sdk/ros2_sdk/calibration/-/issues/new)
+[Create New Issue](https://github.com/RoboSense-Robotics/robosense_ac_calibration/issues/new)

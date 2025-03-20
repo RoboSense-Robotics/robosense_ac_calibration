@@ -1,24 +1,19 @@
 ﻿/******************************************************************************
-Copyright 2022 RoboSense All rights reserved.
-Suteng Innovation Technology Co., Ltd. www.robosense.ai
+   Copyright 2025 RoboSense Technology Co., Ltd
 
-This software is provided to you directly by RoboSense and might
-only be used to access RoboSense LiDAR. Any compilation,
-modification, exploration, reproduction and redistribution are
-restricted without RoboSense's prior consent.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
 
-THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESSED OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL ROBOSENSE BE LIABLE FOR ANY DIRECT,
-INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
-IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
  *****************************************************************************/
+
 #ifndef PCA_H
 #define PCA_H
 
@@ -29,26 +24,18 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 template <typename Type>
-class PcaT
-{
+class PcaT {
 public:
-  enum class SortOrder : uint8_t
-  {
-    NONE,
-    ASCENDING,
-    DESCENDING
-  };
+  enum class SortOrder : uint8_t { NONE, ASCENDING, DESCENDING };
 
   PcaT()  = default;
   ~PcaT() = default;
 
-  void setInput(const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& _input_matrix)
-  {
+  void setInput(const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& _input_matrix) {
     input_matrix_ = _input_matrix;
   }
 
-  void compute(SortOrder _order = SortOrder::ASCENDING)
-  {
+  void compute(SortOrder _order = SortOrder::ASCENDING) {
     // Compute a centered version of input matrix
     centered_matrix_ = input_matrix_.rowwise() - input_matrix_.colwise().mean();
     mean_matrix_     = input_matrix_ - centered_matrix_;
@@ -69,32 +56,43 @@ public:
     projection_matrix_ = w.topRows(input_matrix_.cols()) * centered_matrix_.adjoint();
   }
 
-  Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic> reprojection()
-  {
+  Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic> reprojection() {
     return projection_matrix_.transpose() * eigen_vectors_ + getMean();
     //return (eigen_vectors_ * projection_matrix_ + get_mean().transpose()).transpose();
   }
 
-  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getInputMatrix() const { return input_matrix_; }
-  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getCenteredMatrix() const { return centered_matrix_; }
-  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getCovarianceMatrix() const { return covariance_matrix_; }
-  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getProjectionMatrix() const { return projection_matrix_; }
-  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getMean() const { return mean_matrix_; }
+  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getInputMatrix() const {
+    return input_matrix_;
+  }
+  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getCenteredMatrix() const {
+    return centered_matrix_;
+  }
+  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getCovarianceMatrix() const {
+    return covariance_matrix_;
+  }
+  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getProjectionMatrix() const {
+    return projection_matrix_;
+  }
+  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getMean() const {
+    return mean_matrix_;
+  }
 
-  const Eigen::Matrix<Type, 1, Eigen::Dynamic>& getEigenValues() const { return eigen_values_; };
-  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getEigenVectors() const { return eigen_vectors_; }
+  const Eigen::Matrix<Type, 1, Eigen::Dynamic>& getEigenValues() const {
+    return eigen_values_;
+  };
+  const Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>& getEigenVectors() const {
+    return eigen_vectors_;
+  }
 
 private:
   //
   // Private Methods
   //
 
-  void sortEigenVectors(SortOrder _order = SortOrder::ASCENDING)
-  {
+  void sortEigenVectors(SortOrder _order = SortOrder::ASCENDING) {
     // Stuff below is done to sort eigen values. This can be done in other ways too.
     std::vector<std::pair<int, int>> eigen_value_index_vector;
-    for (int i = 0; i < eigen_values_.size(); ++i)
-    {
+    for (int i = 0; i < eigen_values_.size(); ++i) {
       eigen_value_index_vector.push_back(std::make_pair(eigen_values_[i], i));
     }
 
@@ -108,8 +106,7 @@ private:
     auto sorted_eigen_values = Eigen::Matrix<Type, 1, Eigen::Dynamic>(eigen_values_.cols());
     auto sorted_eigen_vectors =
       Eigen::Matrix<Type, Eigen::Dynamic, Eigen::Dynamic>(eigen_vectors_.rows(), eigen_vectors_.cols());
-    for (int i = 0; i < eigen_values_.size(); ++i)
-    {
+    for (int i = 0; i < eigen_values_.size(); ++i) {
       sorted_eigen_values[i] =
         eigen_values_[eigen_value_index_vector[i].second];  //can also be eigen_value_index_vector[i].first
       sorted_eigen_vectors.col(i) = eigen_vectors_.col(eigen_value_index_vector[i].second);

@@ -1,12 +1,12 @@
-output_dir: "/home/sti/0_super_sensor_sdks/open_source_sdks/src/calibration/data"
-calibration_result: "/home/sti/0_super_sensor_sdks/open_source_sdks/src/calibration/config/calibration_result.yaml"
+output_dir: "xxxx/src/robosense_ac_calibration/data"
+calibration_result: "xxxx/src/robosense_ac_calibration/config/calibration_result.yaml"
 image_topic: "/rs_camera/rgb"
 cloud_topic: "/rs_lidar/points"
 imu_topic: "/rs_imu"
 
 BOARD:
   pattern: AprilTag
-  AprilTagConfig: "/home/sti/0_super_sensor_sdks/open_source_sdks/src/calibration/config/AprilTag_41h12_65-77.yaml"
+  AprilTagConfig: "xxxx/src/robosense_ac_calibration/config/AprilTag_41h12_65-77.yaml"
 
 CAMERA:
   distort_model: Pinhole

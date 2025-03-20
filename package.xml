@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>calibration</name>
+  <name>robosense_ac_calibration</name>
   <version>0.0.0</version>
-  <description>calibration_plugin Panel for rviz2</description>
-  <maintainer email="eddy.sun@robosense.cn">sti</maintainer>
+  <description>robosense_ac_calibration_plugin Panel for rviz2</description>
+  <maintainer email="eddy.sun@robosense.cn">eddy</maintainer>
   <license>Apache-2.0</license>
 
   <build_depend>qtbase5-dev</build_depend>

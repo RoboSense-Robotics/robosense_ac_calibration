@@ -1,3 +1,19 @@
+/******************************************************************************
+   Copyright 2025 RoboSense Technology Co., Ltd
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ *****************************************************************************/
+
 #include "calib_core.h"
 #include "common_function.h"
 
@@ -304,7 +320,6 @@ void CameraCalib::calibCameraExtrinsics(const cv::Mat& img_org, Eigen::Matrix4d&
   std::vector<cv::Point2d> pic_points;
   cv::Mat img_dst;
   std::vector<robosense::calib::ChAprilBoardPoints> detection;
-  cv::imwrite("/home/sti/0_super_sensor_sdks/open_source_sdks/src/calibration/debug/image.jpeg", img_org);
   if (getImageDetection(img_org, img_dst, detection, "", false)) {
     camera_model_->SolvePnP(detection[0].chess_corners_3d, detection[0].chess_corners_2d, rvec, tvec);
   }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(calibration LANGUAGES CXX)
+project(robosense_ac_calibration LANGUAGES CXX)
 
 # 设置自动MOC、RCC和UIC
 set(CMAKE_AUTORCC ON)

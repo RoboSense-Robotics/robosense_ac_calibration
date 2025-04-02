@@ -4,7 +4,7 @@
 
 ## 1. 简介
 
-**Robosense AC Calibration** 用于提供速腾Active Camera的相机内参标定及相机-雷达外参标定
+**Robosense AC Calibration** 用于提供速腾Active Camera的相机内参标定、相机-雷达外参标定以及相机-IMU外参标定
 
 ## 2. 前置依赖
 
@@ -114,6 +114,25 @@ rviz2 -d src/robosense_ac_calibration/config/default.rviz
 
 - ​**参考资源**：  
   - [Demo数据包](https://cdn.robosense.cn/AC_wiki/camera_lidar_calib.zip)
+
+### 5.5 相机-IMU外参标定
+
+- ​**加载配置文件** : 单击控件右上角`open`按钮，选择合理的配置文件进行加载，加载前请确认各配置项是否正确。
+
+- ​**启动驱动** : 单击控件操作区`Start Driver`按钮，程序进行初始化，按钮变灰后可进行下一步。
+
+- ​**开始标定**：  
+  - 单击控件操作区`Camera-IMU`按钮。
+  - 为保证标定精度，开始标定后首先进行IMU零偏矫正，需将AC1静置10s，程序会自动计算零偏，等待输出区出现"imu bias has been calibrated"后，开始旋转AC1（可参照示例视频进行旋转运动）。
+  - 为保证标定精度，每次旋转AC1需保证有充分的角度偏差，且需确保靶板仍然处于相机视野内。
+  - 为保证标定精度，每次旋转AC1之后请再次静置3~5s，完成后进行下一次旋转运动。
+  - 为保证标定精度，请绕不同轴旋转AC1，以确保各个方向的运动被充分激励。
+  - 程序自动检测标定状态，收集到足够的数据之后计算外参，完成后在输出区和终端显示结果。
+  - 预期标定精度在1°以内。
+
+- ​**参考资源**:
+  - [示例视频](https://cdn.robosense.cn/AC_wiki/camera2imu_calib.mp4)
+  - [Demo数据包](https://cdn.robosense.cn/AC_wiki/camera_imu_calib.zip)
 
 ## 6. FAQ
 

@@ -44,8 +44,8 @@ public:
   QPushButton* btn_load_cfg_;
   QPushButton* btn_start_drive_;
   QPushButton* btn_camera_int_;
-  QPushButton* btn_ext_;
-  QPushButton* btn_start_calib_;
+  QPushButton* btn_camera_lidar_ext_;
+  QPushButton* btn_camera_imu_ext_;
   QTextEdit* textedit_output_;
 
   void setupUi(QWidget* CalibrationWidget) {
@@ -103,13 +103,13 @@ public:
     btn_camera_int_->setObjectName(QString::fromUtf8("btn_camera_int_"));
     gridLayout_4->addWidget(btn_camera_int_, 0, 1, 1, 1);
 
-    btn_ext_ = new QPushButton(frame_3);
-    btn_ext_->setObjectName(QString::fromUtf8("btn_ext_"));
-    gridLayout_4->addWidget(btn_ext_, 1, 0, 1, 1);
+    btn_camera_lidar_ext_ = new QPushButton(frame_3);
+    btn_camera_lidar_ext_->setObjectName(QString::fromUtf8("btn_camera_lidar_ext_"));
+    gridLayout_4->addWidget(btn_camera_lidar_ext_, 1, 0, 1, 1);
 
-    btn_start_calib_ = new QPushButton(frame_3);
-    btn_start_calib_->setObjectName(QString::fromUtf8("btn_start_calib_"));
-    gridLayout_4->addWidget(btn_start_calib_, 1, 1, 1, 1);
+    btn_camera_imu_ext_ = new QPushButton(frame_3);
+    btn_camera_imu_ext_->setObjectName(QString::fromUtf8("btn_camera_imu_ext_"));
+    gridLayout_4->addWidget(btn_camera_imu_ext_, 1, 1, 1, 1);
 
     gridLayout_2->addWidget(frame_3, 1, 0, 1, 1);
 
@@ -135,8 +135,8 @@ public:
     btn_load_cfg_->setText(QCoreApplication::translate("CalibrationWidget", "open", nullptr));
     btn_start_drive_->setText(QCoreApplication::translate("CalibrationWidget", "Start Driver", nullptr));
     btn_camera_int_->setText(QCoreApplication::translate("CalibrationWidget", "Camera Int", nullptr));
-    btn_ext_->setText(QCoreApplication::translate("CalibrationWidget", "Camera-Lidar", nullptr));
-    btn_start_calib_->setText(QCoreApplication::translate("CalibrationWidget", "Camera-Imu", nullptr));
+    btn_camera_lidar_ext_->setText(QCoreApplication::translate("CalibrationWidget", "Camera-Lidar", nullptr));
+    btn_camera_imu_ext_->setText(QCoreApplication::translate("CalibrationWidget", "Camera-Imu", nullptr));
     textedit_output_->setHtml(QCoreApplication::translate(
       "CalibrationWidget",
       "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"

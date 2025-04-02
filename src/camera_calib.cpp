@@ -309,8 +309,6 @@ void CameraCalib::setCameraModel(const std ::string& camera_model_type,
   auto camera_type = camera_type_map[camera_model_type];
   robosense::CameraModelFactory camera_model_fac;
 
-  std::cout << "camera_matrix_:\n" << camera_int_matrix << std::endl;
-  std::cout << "camera_dist_coeff:\n" << camera_dist_coeff << std::endl;
   camera_model_ = camera_model_fac.GetCameraModel(camera_int_matrix, camera_dist_coeff, camera_image_size, camera_type);
 }
 
@@ -379,8 +377,7 @@ void CameraCalib::calibrateCameraIntrinsics() {
   for (size_t i = 0; i < projection_err_vec.size(); i++) {
     std::vector<double> camera_to_board_r_vec, camera_to_board_t_vec;
     transformCameraPose(r_vecs_[i], t_vecs_[i], camera_to_board_r_vec, camera_to_board_t_vec);
-    // std::cout << "pic " << i << ":    \t" << std::setprecision(12) << camera_to_board_t_vec[0] << ",    \t"
-    //           << camera_to_board_t_vec[1] << ",    \t" << camera_to_board_t_vec[2] << std::endl;
+
     x_max = camera_to_board_t_vec[0] > x_max ? camera_to_board_t_vec[0] : x_max;
     y_max = camera_to_board_t_vec[1] > y_max ? camera_to_board_t_vec[1] : y_max;
     z_max = camera_to_board_t_vec[2] > z_max ? camera_to_board_t_vec[2] : z_max;
@@ -618,14 +615,14 @@ std::string formatMatrix(const cv::Mat& mat) {
 
 std::string CameraCalib::getCalibResult() {
   std::stringstream res_str;
-  
+
   res_str << "calib_error:\n";
   res_str << std::fixed << std::setprecision(6) << calib_res_.calib_error << "\n\n";
 
-  res_str << "fx: "<<calib_res_.camera_matrix.at<double>(0, 0) << "\n";
-  res_str << "fy: "<<calib_res_.camera_matrix.at<double>(1, 1) << "\n";
-  res_str << "cx: "<<calib_res_.camera_matrix.at<double>(0, 2) << "\n";
-  res_str << "cy: "<<calib_res_.camera_matrix.at<double>(1, 2) << "\n\n";
+  res_str << "fx: " << calib_res_.camera_matrix.at<double>(0, 0) << "\n";
+  res_str << "fy: " << calib_res_.camera_matrix.at<double>(1, 1) << "\n";
+  res_str << "cx: " << calib_res_.camera_matrix.at<double>(0, 2) << "\n";
+  res_str << "cy: " << calib_res_.camera_matrix.at<double>(1, 2) << "\n\n";
 
   res_str << "distort_coefficient:\n";
   res_str << formatMatrix(calib_res_.distort_coefficient);

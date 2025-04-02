@@ -4,7 +4,7 @@
 
 ## 1. Introduction
 
-**Robosense AC Calibration** is designed to provide camera intrinsic calibration and camera-lidar extrinsic calibration for Robosense Active Camera.
+**Robosense AC Calibration** is designed to provide camera intrinsic calibration, camera-lidar extrinsic calibration and camera-imu extrinsic calibration for Robosense Active Camera.
 
 ## 2. Prerequisites
 
@@ -74,7 +74,9 @@ rviz2 -d src/robosense_ac_calibration/config/default.rviz
 ### 5.3 Camera Intrinsic Calibration
 
 - ​**Load Configuration File**: Click the `Open` button in the top-right control panel to select the appropriate configuration file. Verify all parameters before loading.
+
 - ​**Start Driver**: Click the `Start Driver` button in the control panel. The button will turn gray once initialization is complete.
+
 - Click the `Camera Int` button in the control panel to enter camera intrinsic calibration mode. The program will display guidance frames (published on `/camera/image_indicate`) indicating the current calibration progress.
 
 - ​**Capture Images**:  
@@ -90,7 +92,7 @@ rviz2 -d src/robosense_ac_calibration/config/default.rviz
   - Expected accuracy ​within 1.0 pixel.  
 
 - ​**References**:  
-  - [Demo Video](https://cdn.robosense.cn/AC_wiki/camera_intrinsics_calib.mp4)  
+  - [Demo Video](https://cdn.robosense.cn/AC_wiki/camera_intrinsics_calib_en.mp4)  
   - [Sample Data](https://cdn.robosense.cn/AC_wiki/camera_intrinsics_calib.zip)
 
 ---
@@ -99,7 +101,7 @@ rviz2 -d src/robosense_ac_calibration/config/default.rviz
 
 - ​**Load Configuration File**: Click the `Open` button to load the correct configuration file.
 
-- ​**Start Driver**: Click `Start Driver` to initialize the system.  
+- ​**Start Driver**: Click the `Start Driver` button in the control panel. The button will turn gray once initialization is complete.
 
 - ​**Calibration Board Setup Recommendations**:  
   - Ensure the board is within the ​**FOV** of both sensors (recommended distance: ​**0.8m~1m**). Use Rviz for verification.  
@@ -112,10 +114,29 @@ rviz2 -d src/robosense_ac_calibration/config/default.rviz
 
 - ​**Start Calibration**:  
   - Click the `Camera-Lidar` button. The program automatically checks calibration conditions, computes extrinsic parameters, and displays results upon completion.  
-  - Expected accuracy within 0.3°.  
+  - Expected accuracy within 0.3°.
 
 - ​**Reference**:  
   - [Sample Data](https://cdn.robosense.cn/AC_wiki/camera_lidar_calib.zip)
+
+### 5.5 Camera-IMU Extrinsic Calibration
+
+- ​**Load Configuration File**: Click the `Open` button to load the correct configuration file.
+
+- ​**Start Driver**: Click the `Start Driver` button in the control panel. The button will turn gray once initialization is complete.
+
+- ​**Start Calibration**:
+  - Click the `Camera-IMU` button in the control panel.
+  - To ensure calibration accuracy, the process starts with IMU bias calibration. Keep AC1 stationary for 10 seconds to allow the program to automatically calculate the bias. Wait until the message "imu bias has been calibrated" appears in the output area, then begin rotating AC1 (refer to the demo video for rotation guidance).
+  - To ensure calibration accuracy, each rotation of AC1 must provide sufficient angular deviation while keeping the target board within the camera's field of view.
+  - To ensure calibration accuracy, after each rotation, keep AC1 stationary again for 3–5 seconds before performing the next rotation.
+  - To ensure calibration accuracy, rotate AC1 around different axes to ensure sufficient excitation of motion in all directions.
+  - The program automatically detects calibration status. Once sufficient data is collected, the extrinsic parameters are calculated, and results are displayed in the output area and terminal.
+  - Expected accuracy within 1°.
+
+- ​**Reference**:  
+  - [Demo Video](https://cdn.robosense.cn/AC_wiki/camera2imu_calib_en.mp4)  
+  - [Sample Data](https://cdn.robosense.cn/AC_wiki/camera_imu_calib.zip)
 
 ## 6. FAQ
 

@@ -46,8 +46,8 @@ private slots:
 
   void startDriver();
   void cameraIntrinsicsMode();
-  void ExtrinsicsMode();
-  void calibrate();
+  void cameraToLidarExtrinsicsMode();
+  void cameraToIMUExtrinsicsMode();
   void loadConfig();
 
 public slots:
@@ -121,6 +121,7 @@ private:
   std::atomic<bool> auto_calibrating_;
 
   CalibStatus calib_status_ = CalibStatus::None;
+  bool imu_triggered_ = false;
 };
 
 }  // namespace rs_calibration_plugin

@@ -30,9 +30,10 @@
 #include <yaml-cpp/yaml.h>
 
 enum CalibStatus {
-  None      = 0,
-  CameraInt = 1,
-  Ext       = 2,
+  None         = 0,
+  CameraInt    = 1,
+  Camera2Lidar = 2,
+  Camera2IMU   = 3,
 };
 
 struct extrinsic {
@@ -98,6 +99,8 @@ class CalibCore {
 private:
   void calibrateCameraIntrinsics();
   void calibrateExtrinsics();
+  Eigen::Matrix4d calibrateCamera2IMUExtrinsics();
+  Eigen::Matrix4d calibrateCamera2LidarExtrinsics();
 
   void loadCalibrationParameters(const std::string& _config_file);
   void loadExtrinsic(const YAML::Node& _extrinsic_node, extrinsic& _extrinsic);
@@ -116,7 +119,11 @@ private:
 
   std::vector<Eigen::Matrix4d> integrateIMU(const std::queue<sensor_msgs::msg::Imu::SharedPtr>& imu_queue,
                                             const std::vector<double>& static_pose_timestamp_vec);
+  Eigen::Matrix4d integrateIMUPose(const std::queue<sensor_msgs::msg::Imu::SharedPtr>& imu_queue);
+  Eigen::Matrix4d calIMUTransform(const sensor_msgs::msg::Imu::SharedPtr& pre_imu_msg,
+                                  const sensor_msgs::msg::Imu::SharedPtr& nxt_imu_msg);
 
+  bool calibrateIMUBias();
   bool checkMotion(const sensor_msgs::msg::Imu::SharedPtr msg, double angular_thresh);
 
   void solveHandEyeCalibration(const std::vector<Eigen::Matrix4d>& matrix_A,
@@ -143,6 +150,9 @@ private:
   std::vector<double> static_pose_timestamp_vec_;
   double last_motion_time_ = 0.0;
   bool silence_detected_   = false;
+  bool bias_collected_     = false;
+
+  Eigen::Vector3d angular_velocity_bias_ = Eigen::Vector3d::Zero();
 
   size_t pointcloud_count_ = 0;
 
@@ -191,6 +201,11 @@ public:
   size_t getExtCalibPose();
   void clearExtCalibPose();
 
+  bool getBiasCollected() {
+    return (calib_status_ == CalibStatus::Camera2IMU) ? bias_collected_ : false;
+  }
+
+  void setCalibStatus(const CalibStatus calib_status);
   void setImageMsgInput(const sensor_msgs::msg::Image::SharedPtr& msg);
   void setImuMsgInput(const sensor_msgs::msg::Imu::SharedPtr& msg);
   void setPointcloudInput(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_ptr);

@@ -79,7 +79,6 @@ void CalibCore::loadCalibrationParameters(const std::string& _config_file) {
   for (int i = 0; i < 14; i++) {
     camera_dist_coeff_.at<double>(0, i) = i < distor_coff.size() ? distor_coff[i] : 0.0;
   }
-  std::cout << "camera_calib_ptr_->setCameraModel" << std::endl;
   camera_calib_ptr_->setCameraModel(camera_model_, camera_int_matrix_, camera_dist_coeff_, camera_image_size_);
 
   initCameraConfig();
@@ -129,11 +128,7 @@ void CalibCore::calibrateCameraIntrinsics() {
   return;
 }
 
-void CalibCore::calibrateExtrinsics() {
-
-  std::cout << "static_pose_timestamp_vec: " << static_pose_timestamp_vec_.size() << std::endl;
-
-  std::vector<Eigen::Matrix4d> camera_lidar_pose_vec;
+Eigen::Matrix4d CalibCore::calibrateCamera2LidarExtrinsics() {
   std::vector<Eigen::Matrix4d> camera_pose_vec, lidar_pose_vec;
   for (size_t i = 0; i < static_pose_timestamp_vec_.size(); ++i) {
     cv::Mat image = cv_bridge::toCvCopy(image_msg_vec_[i], image_msg_vec_[i]->encoding)->image;
@@ -141,34 +136,73 @@ void CalibCore::calibrateExtrinsics() {
     auto cloud_ptr = pointcloud_vec_[i];
     Eigen::Matrix4d camera_pose, lidar_pose;
     calibrateSingleCameraLidarExtrinsics(image, cloud_ptr, camera_pose, lidar_pose);
-    camera_lidar_pose_vec.push_back(lidar_pose.inverse() * camera_pose);
     camera_pose_vec.push_back(camera_pose);
     lidar_pose_vec.push_back(lidar_pose);
   }
+  auto camera_lidar_transform = calibrateCameraLidarExtrinsics(camera_pose_vec, lidar_pose_vec);
+  return camera_lidar_transform;
+}
+
+Eigen::Matrix4d CalibCore::calibrateCamera2IMUExtrinsics() {
+  std::cout << "static_pose_timestamp_vec: " << static_pose_timestamp_vec_.size() << std::endl;
+
+  std::vector<Eigen::Matrix4d> camera_pose_vec, camera_delta_pose;
+  for (size_t i = 0; i < static_pose_timestamp_vec_.size(); ++i) {
+    cv::Mat image = cv_bridge::toCvCopy(image_msg_vec_[i], image_msg_vec_[i]->encoding)->image;
+    Eigen::Matrix4d camera_pose;
+    calibrateSingleCameraExtrinsics(image, camera_pose);
+
+    if (!camera_pose_vec.empty()) {
+      Eigen::Matrix4d delta_transform = (camera_pose.inverse() * camera_pose_vec.back()).inverse();
+      camera_delta_pose.push_back(delta_transform);
+      // auto delta_pose = robosense::calib::factory_calibration::getPoseFromMatrix(delta_transform);
+      // std::cout << std::fixed << std::setprecision(6);
+      // std::cout << "=================================================" << std::endl;
+      // std::cout << "camera_delta_pose euler:\n";
+      // std::cout << "    roll:  " << delta_pose.euler_vec(2) * 180.0 / M_PI << "\n";
+      // std::cout << "    pitch: " << delta_pose.euler_vec(1) * 180.0 / M_PI << "\n";
+      // std::cout << "    yaw:   " << delta_pose.euler_vec(0) * 180.0 / M_PI << "\n";
+      // std::cout << "\n";
+    }
+    camera_pose_vec.push_back(camera_pose);
+  }
 
   Eigen::Matrix4d camera_imu_transform = Eigen::Matrix4d::Identity();
-  if (lidar_pose_vec.size() < 3) {
-    // 数据不足，无法进行手眼标定
+  if (camera_delta_pose.size() < 3) {
+    std::cout << "lack of data for hand-eye calibration" << std::endl;
     camera_imu_transform = camera_extrinsic_.transform_matrix;
   } else {
     std::vector<Eigen::Matrix4d> imu_delta_pose = integrateIMU(imu_msg_queue_, static_pose_timestamp_vec_);
-    std::vector<Eigen::Matrix4d> camera_delta_pose;
-    for (size_t i = 0; i < static_pose_timestamp_vec_.size() - 1; ++i) {
-      camera_delta_pose.push_back(camera_pose_vec[i + 1] * camera_pose_vec[i].inverse());
-      std::cout << "camera_delta_pose:\n" << camera_pose_vec[i + 1] * camera_pose_vec[i].inverse() << std::endl;
-    }
-    std::cout << "pose count: " << camera_delta_pose.size() << " -> " << imu_delta_pose.size() << std::endl;
-    auto imu_camera_transform = calibrateCameraImuExtrinsics(imu_delta_pose, camera_delta_pose);
+    std::cout << "handeye calibration pose count: " << camera_delta_pose.size() << " -> " << imu_delta_pose.size()
+              << std::endl;
+    auto imu_camera_transform = calibrateCameraImuExtrinsics(camera_delta_pose, imu_delta_pose);
     camera_imu_transform      = imu_camera_transform.inverse();
+
+    camera_imu_transform.block<3, 1>(0, 3) = camera_extrinsic_.transform_matrix.block<3, 1>(0, 3);  // keep translation
   }
+  return camera_imu_transform;
+}
 
-  auto camera_lidar_transform = calibrateCameraLidarExtrinsics(camera_pose_vec, lidar_pose_vec);
-  // camera_lidar_transform      = camera_lidar_pose_vec[0];
-  auto camera_lidar_pose   = robosense::calib::factory_calibration::getPoseFromMatrix(camera_imu_transform);
-  auto lidar_imu_transform = camera_imu_transform * camera_lidar_transform.inverse();
+void CalibCore::calibrateExtrinsics() {
+  // load default extrinsic
+  Eigen::Matrix4d camera_imu_transform   = camera_extrinsic_.transform_matrix;
+  Eigen::Matrix4d lidar_imu_transform    = lidar_extrinsic_.transform_matrix;
+  Eigen::Matrix4d camera_lidar_transform = lidar_imu_transform.inverse() * camera_imu_transform;
 
-  camera_extrinsic_.transform_matrix = camera_imu_transform;
-  lidar_extrinsic_.transform_matrix  = lidar_imu_transform;
+  if (calib_status_ == CalibStatus::Camera2Lidar) {
+    camera_lidar_transform = calibrateCamera2LidarExtrinsics();
+    camera_imu_transform   = lidar_imu_transform * camera_lidar_transform;
+
+    camera_extrinsic_.transform_matrix = camera_imu_transform;
+  } else if (calib_status_ == CalibStatus::Camera2IMU) {
+    camera_imu_transform = calibrateCamera2IMUExtrinsics();
+    lidar_imu_transform  = camera_imu_transform * camera_lidar_transform.inverse();
+
+    camera_extrinsic_.transform_matrix = camera_imu_transform;
+    lidar_extrinsic_.transform_matrix  = lidar_imu_transform;
+  } else {
+    std::cout << "calib_status_ error: " << calib_status_ << std::endl;
+  }
 }
 
 void CalibCore::calibrateSingleCameraExtrinsics(const cv::Mat& img, Eigen::Matrix4d& camera_pose) {
@@ -193,7 +227,6 @@ void CalibCore::calibrateSingleCameraLidarExtrinsics(const cv::Mat& img,
   auto lidar_camera_transform = (camera_extrinsic_.transform_matrix).inverse() * lidar_extrinsic_.transform_matrix;
   lidar_pose                  = camera_pose * lidar_camera_transform;
   calibrateSingleLidarExtrinsics(cloud_ptr, lidar_pose);
-
   return;
 }
 
@@ -203,167 +236,151 @@ Eigen::Matrix4d CalibCore::calibrateCameraLidarExtrinsics(const std::vector<Eige
     return Eigen::Matrix4d::Identity();
   }
 
-  if (camera_pose_vec.size() < 2) {
-    return lidar_pose_vec[0].inverse() * camera_pose_vec[0];
-  }
-
-  // Initialize parameters using first pair
-  Eigen::Matrix4d T_cl_init = lidar_pose_vec[0].inverse() * camera_pose_vec[0];
-
-  std::cout << "T_cl_init transform:\n" << T_cl_init << std::endl;
-
-  Eigen::Matrix3d R_init = T_cl_init.block<3, 3>(0, 0);
-  Eigen::Vector3d t_init = T_cl_init.block<3, 1>(0, 3);
-  Eigen::AngleAxisd aa(R_init);
-  Eigen::Vector3d axis_angle_init = aa.angle() * aa.axis();
-
-  double params[6] = {
-    axis_angle_init.x(), axis_angle_init.y(), axis_angle_init.z(), t_init.x(), t_init.y(), t_init.z()
-  };
-
-  // Build optimization problem
-  ceres::Problem problem;
-  for (size_t i = 0; i < camera_pose_vec.size(); ++i) {
-    ceres::CostFunction* cost_function = new ceres::AutoDiffCostFunction<ExtrinsicCalibrationResidual, 6, 6>(
-      new ExtrinsicCalibrationResidual(camera_pose_vec[i], lidar_pose_vec[i]));
-    problem.AddResidualBlock(cost_function, nullptr, params);
-  }
-
-  // Configure and solve
-  ceres::Solver::Options options;
-  options.minimizer_progress_to_stdout = false;
-  options.linear_solver_type           = ceres::DENSE_SCHUR;
-  ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
-
-  // Convert optimized parameters to matrix
-  Eigen::Vector3d axis_angle(params[0], params[1], params[2]);
-  double angle = axis_angle.norm();
-  Eigen::Matrix3d R =
-    angle < 1e-8 ? Eigen::Matrix3d::Identity() : Eigen::AngleAxisd(angle, axis_angle / angle).toRotationMatrix();
-  Eigen::Vector3d t(params[3], params[4], params[5]);
-
-  Eigen::Matrix4d T_cl   = Eigen::Matrix4d::Identity();
-  T_cl.block<3, 3>(0, 0) = R;
-  T_cl.block<3, 1>(0, 3) = t;
-
-  return T_cl;
+  return lidar_pose_vec[0].inverse() * camera_pose_vec[0];
 }
 
 Eigen::Matrix4d CalibCore::calibrateCameraImuExtrinsics(const std::vector<Eigen::Matrix4d>& camera_delta_pose_vec,
                                                         const std::vector<Eigen::Matrix4d>& imu_delta_pose_vec) {
   Eigen::Matrix4d imu_camera_transform = Eigen::Matrix4d::Identity();
-  solveHandEyeCalibration(camera_delta_pose_vec, imu_delta_pose_vec, imu_camera_transform);  // TODO: attention
+  solveHandEyeCalibration(camera_delta_pose_vec, imu_delta_pose_vec, imu_camera_transform);
   return imu_camera_transform;
+}
+
+Eigen::Matrix4d CalibCore::calIMUTransform(const sensor_msgs::msg::Imu::SharedPtr& pre_imu_msg,
+                                           const sensor_msgs::msg::Imu::SharedPtr& nxt_imu_msg) {
+  Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+
+  double pre_time =
+    static_cast<double>(pre_imu_msg->header.stamp.sec) + static_cast<double>(pre_imu_msg->header.stamp.nanosec) * 1e-9;
+  double nxt_time =
+    static_cast<double>(nxt_imu_msg->header.stamp.sec) + static_cast<double>(nxt_imu_msg->header.stamp.nanosec) * 1e-9;
+  double delta_time = nxt_time - pre_time;
+
+  double angular_velocity_x =
+    (nxt_imu_msg->angular_velocity.x + pre_imu_msg->angular_velocity.x) / 2.0 - angular_velocity_bias_(0);
+  double angular_velocity_y =
+    (nxt_imu_msg->angular_velocity.y + pre_imu_msg->angular_velocity.y) / 2.0 - angular_velocity_bias_(1);
+  double angular_velocity_z =
+    (nxt_imu_msg->angular_velocity.z + pre_imu_msg->angular_velocity.z) / 2.0 - angular_velocity_bias_(2);
+
+  double angular_x = angular_velocity_x * delta_time;
+  double angular_y = angular_velocity_y * delta_time;
+  double angular_z = angular_velocity_z * delta_time;
+  if (delta_time > 1.0) {
+    return transform;
+  }
+
+  // IMU angular represents the rotation axis
+  Eigen::Vector3d rotation_vec;
+  rotation_vec << angular_x, angular_y, angular_z;
+
+  double angle         = rotation_vec.norm();
+  Eigen::Vector3d axis = rotation_vec.normalized();
+
+  Eigen::AngleAxisd angle_axis(angle, axis);
+
+  Eigen::Matrix3d rotation_matrix = angle_axis.toRotationMatrix();
+
+  transform.setIdentity();
+  transform.block(0, 0, 3, 3) = rotation_matrix;
+
+  return transform;
+}
+
+Eigen::Matrix4d CalibCore::integrateIMUPose(const std::queue<sensor_msgs::msg::Imu::SharedPtr>& imu_queue) {
+  Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+
+  auto imu_queue_copy   = imu_queue;
+  auto pre_imu_msg      = imu_queue_copy.front();
+  size_t interval_count = 0;
+
+  while (1) {
+    imu_queue_copy.pop();
+    interval_count++;
+    if (imu_queue_copy.empty()) {
+      break;
+    }
+    interval_count = 0;
+
+    auto nxt_imu_msg     = imu_queue_copy.front();
+    auto delta_transform = calIMUTransform(pre_imu_msg, nxt_imu_msg);
+
+    auto imu_pose = robosense::calib::factory_calibration::getPoseFromMatrix(delta_transform);
+
+    Eigen::Matrix3d rotation_matrix = delta_transform.block<3, 3>(0, 0);
+    Eigen::AngleAxisd rotation_vector(rotation_matrix);
+    double rotation_angle = rotation_vector.angle() * 180.0 / M_PI;
+    if (rotation_angle > 20) {
+      pre_imu_msg = nxt_imu_msg;
+      continue;
+    }
+
+    transform   = transform * delta_transform;
+    pre_imu_msg = nxt_imu_msg;
+  }
+  return transform;
 }
 
 std::vector<Eigen::Matrix4d> CalibCore::integrateIMU(const std::queue<sensor_msgs::msg::Imu::SharedPtr>& imu_queue,
                                                      const std::vector<double>& static_pose_timestamp_vec) {
   std::cout << "integrateIMU: " << imu_queue.size() << " -> " << static_pose_timestamp_vec.size() << std::endl;
 
-  std::vector<Eigen::Matrix4d> result;
-
-  // 将imu_queue拷贝到vector中以便处理
-  std::vector<sensor_msgs::msg::Imu::SharedPtr> imu_vec;
-  std::queue<sensor_msgs::msg::Imu::SharedPtr> temp_queue =
-    imu_queue;  // 注意：这里需要原队列非const才能拷贝，实际可能需要其他处理方式
-  while (!temp_queue.empty()) {
-    imu_vec.push_back(temp_queue.front());
-    temp_queue.pop();
+  std::vector<Eigen::Matrix4d> delta_imu_transform_vec;
+  if (imu_queue.size() < 2 || static_pose_timestamp_vec.size() < 2) {
+    return delta_imu_transform_vec;
   }
 
-  // 按时间戳排序imu_vec
-  std::sort(imu_vec.begin(), imu_vec.end(),
-            [](const sensor_msgs::msg::Imu::SharedPtr& a, const sensor_msgs::msg::Imu::SharedPtr& b) {
-              double t_a = a->header.stamp.sec + a->header.stamp.nanosec * 1e-9;
-              double t_b = b->header.stamp.sec + b->header.stamp.nanosec * 1e-9;
-              return t_a < t_b;
-            });
+  auto imu_queue_copy = imu_queue;
 
   for (size_t i = 0; i < static_pose_timestamp_vec.size() - 1; ++i) {
-    double start_time = static_pose_timestamp_vec[i];
-    double end_time   = static_pose_timestamp_vec[i + 1];
+    auto start_timestamp = static_pose_timestamp_vec[i];
+    auto ent_timestamp   = static_pose_timestamp_vec[i + 1];
+    std::queue<sensor_msgs::msg::Imu::SharedPtr> imu_segment_queue;
 
-    // 找到在时间段内的IMU数据
-    auto start_it = std::lower_bound(imu_vec.begin(), imu_vec.end(), start_time,
-                                     [](const sensor_msgs::msg::Imu::SharedPtr& imu, double t) {
-                                       double imu_time = imu->header.stamp.sec + imu->header.stamp.nanosec * 1e-9;
-                                       return imu_time < t;
-                                     });
-    auto end_it   = std::upper_bound(imu_vec.begin(), imu_vec.end(), end_time,
-                                     [](double t, const sensor_msgs::msg::Imu::SharedPtr& imu) {
-                                     double imu_time = imu->header.stamp.sec + imu->header.stamp.nanosec * 1e-9;
-                                     return t < imu_time;
-                                     });
+    while (!imu_queue_copy.empty()) {
+      auto imu_msg = imu_queue_copy.front();
+      double current_stamp =
+        static_cast<double>(imu_msg->header.stamp.sec) + static_cast<double>(imu_msg->header.stamp.nanosec) * 1e-9;
 
-    std::vector<sensor_msgs::msg::Imu::SharedPtr> segment(start_it, end_it);
-
-    if (segment.empty()) {
-      result.push_back(Eigen::Matrix4d::Identity());
-      continue;
-    }
-
-    // 初始重力取自第一个IMU数据（假设设备在start_time静止）
-    Eigen::Vector3d g_imu(segment.front()->linear_acceleration.x, segment.front()->linear_acceleration.y,
-                          segment.front()->linear_acceleration.z);
-
-    Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
-    Eigen::Vector3d v = Eigen::Vector3d::Zero();
-    Eigen::Vector3d p = Eigen::Vector3d::Zero();
-    double t_prev     = start_time;
-
-    for (const auto& imu : segment) {
-      double current_time = imu->header.stamp.sec + imu->header.stamp.nanosec * 1e-9;
-      double dt           = current_time - t_prev;
-      if (dt <= 0.0) {
-        continue;  // 忽略无效时间差
+      if (current_stamp < start_timestamp) {
+        imu_queue_copy.pop();
+        continue;
       }
 
-      // 积分旋转
-      Eigen::Vector3d ang_vel(imu->angular_velocity.x, imu->angular_velocity.y, imu->angular_velocity.z);
-      double theta = ang_vel.norm() * dt;
-      Eigen::Quaterniond delta_q;
-      if (theta < 1e-6) {
-        delta_q = Eigen::Quaterniond::Identity();
-      } else {
-        delta_q = Eigen::Quaterniond(Eigen::AngleAxisd(theta, ang_vel.normalized()));
+      if (current_stamp > ent_timestamp) {
+
+        // std::cout << "**************************************" << std::endl;
+        std::cout << "timestamp gap: " << start_timestamp << " -> " << ent_timestamp << std::endl;
+        auto imu_transform = integrateIMUPose(imu_segment_queue);
+
+        auto imu_pose = robosense::calib::factory_calibration::getPoseFromMatrix(imu_transform);
+        // std::cout << "imu_delta_pose euler:\n";
+        // std::cout << std::fixed << std::setprecision(6);
+        // std::cout << "    roll:  " << imu_pose.euler_vec(2) * 180.0 / M_PI << "\n";
+        // std::cout << "    pitch: " << imu_pose.euler_vec(1) * 180.0 / M_PI << "\n";
+        // std::cout << "    yaw:   " << imu_pose.euler_vec(0) * 180.0 / M_PI << "\n";
+        // std::cout << "\n";
+
+        imu_segment_queue = std::queue<sensor_msgs::msg::Imu::SharedPtr>();
+        delta_imu_transform_vec.push_back(imu_transform);
+        break;
       }
-      Eigen::Quaterniond q(R);
-      q = q * delta_q;
-      q.normalize();
-      R = q.toRotationMatrix();
 
-      // 处理加速度
-      Eigen::Vector3d accel(imu->linear_acceleration.x, imu->linear_acceleration.y, imu->linear_acceleration.z);
-      Eigen::Vector3d accel_body  = accel - g_imu;
-      Eigen::Vector3d accel_world = R * accel_body;
-
-      // 积分速度
-      v += accel_world * dt;
-      // 积分位移
-      p += v * dt + 0.5 * accel_world * dt * dt;
-
-      t_prev = current_time;
+      imu_segment_queue.push(imu_msg);
+      imu_queue_copy.pop();
     }
-
-    // 构造变换矩阵
-    Eigen::Matrix4d T   = Eigen::Matrix4d::Identity();
-    T.block<3, 3>(0, 0) = R;
-    T.block<3, 1>(0, 3) = p;
-
-    result.push_back(T);
-    std::cout << "imu_delta_pose:\n" << T << std::endl;
   }
+  // exit(1);
 
-  return result;
+  return delta_imu_transform_vec;
 }
 
 void CalibCore::startCalib(const CalibStatus calib_status) {
-  calib_status_ = calib_status;
   switch (calib_status) {
   case CalibStatus::None: break;
   case CalibStatus::CameraInt: calibrateCameraIntrinsics(); break;
-  case CalibStatus::Ext: calibrateExtrinsics(); break;
+  case CalibStatus::Camera2Lidar: calibrateExtrinsics(); break;
+  case CalibStatus::Camera2IMU: calibrateExtrinsics(); break;
   default: break;
   }
 }
@@ -375,6 +392,9 @@ bool CalibCore::autoPushImage(cv::Mat& img) {
 size_t CalibCore::getImageCount() {
   return camera_calib_ptr_->getImageCount();
 }
+void CalibCore::setCalibStatus(const CalibStatus calib_status){
+  calib_status_ = calib_status;
+}
 
 void CalibCore::setPointcloudInput(const pcl::PointCloud<pcl::PointXYZI>::Ptr& _input_ptr) {
   pointcloud_vec_.push_back(_input_ptr);
@@ -383,12 +403,14 @@ void CalibCore::setPointcloudInput(const pcl::PointCloud<pcl::PointXYZI>::Ptr& _
 void CalibCore::setImuMsgInput(const sensor_msgs::msg::Imu::SharedPtr& msg) {
   imu_msg_queue_.push(msg);
 
-  double angular_thresh = 0.05;  // unit: rad/s
+  double angular_thresh = 0.1;  // unit: rad/s
   double current_stamp =
     static_cast<double>(msg->header.stamp.sec) + static_cast<double>(msg->header.stamp.nanosec) * 1e-9;
 
   const bool is_moving = checkMotion(msg, angular_thresh);
   last_motion_time_    = last_motion_time_ < 1e-3 ? current_stamp : last_motion_time_;
+
+  bias_collected_ = (calib_status_ == CalibStatus::Camera2IMU) ? bias_collected_ : true;
 
   if (is_moving) {
     last_motion_time_ = current_stamp;
@@ -396,14 +418,41 @@ void CalibCore::setImuMsgInput(const sensor_msgs::msg::Imu::SharedPtr& msg) {
   } else {
     double silence_duration = current_stamp - last_motion_time_;
 
-    if (silence_duration >= 1.0 && !silence_detected_) {
+    if (!bias_collected_ && silence_duration >= 10.0) {
+      // need 10s silence to calibrate imu bias
+      calibrateIMUBias();
+    }
+
+    if (bias_collected_ && silence_duration >= 2.0 && !silence_detected_) {
       silence_detected_ = true;
       // static_pose_timestamp_vec_.push_back(current_stamp);
-      std::cout << "static_pose_timestamp: " << std::fixed << std::setprecision(3) << current_stamp << std::endl;
+      std::cout << "static_pose_timestamp: " << std::fixed << std::setprecision(3) << current_stamp
+                << "      imu_msg_queue size: " << imu_msg_queue_.size() << std::endl;
       is_ext_calib_ready_ = true;
     }
   }
   return;
+}
+
+bool CalibCore::calibrateIMUBias() {
+  bias_collected_         = true;
+  auto imu_msg_queue_copy = imu_msg_queue_;
+  angular_velocity_bias_.setZero();
+  size_t imu_msg_count = 0;
+  while (!imu_msg_queue_copy.empty()) {
+    auto msg = imu_msg_queue_copy.front();
+    Eigen::Vector3d angular_velocity(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
+    angular_velocity_bias_ += angular_velocity;
+    imu_msg_queue_copy.pop();
+    imu_msg_count++;
+  }
+  if (imu_msg_count < 1) {
+    angular_velocity_bias_.setZero();
+    return false;
+  }
+  angular_velocity_bias_ /= imu_msg_count;
+  std::cout << "angular_velocity_bias has been calibrated!" << std::endl;
+  return true;
 }
 
 bool CalibCore::checkMotion(const sensor_msgs::msg::Imu::SharedPtr msg, double angular_thresh) {
@@ -476,7 +525,13 @@ std::string CalibCore::getCameraLidarCalibResult() {
   res_str << "    x: " << camera_imu_pose.q_x << "\n";
   res_str << "    y: " << camera_imu_pose.q_y << "\n";
   res_str << "    z: " << camera_imu_pose.q_z << "\n";
-  res_str << "    w: " << camera_imu_pose.q_w << "\n\n";
+  res_str << "    w: " << camera_imu_pose.q_w << "\n";
+
+  res_str << "  euler:\n";
+  res_str << "    roll:  " << camera_imu_pose.euler_vec(2) * 180.0 / M_PI << "\n";
+  res_str << "    pitch: " << camera_imu_pose.euler_vec(1) * 180.0 / M_PI << "\n";
+  res_str << "    yaw:   " << camera_imu_pose.euler_vec(0) * 180.0 / M_PI << "\n";
+  res_str << "\n";
 
   auto lidar_imu_pose = robosense::calib::factory_calibration::getPoseFromMatrix(lidar_extrinsic_.transform_matrix);
   res_str << "lidar extrinsic:\n";
@@ -489,7 +544,12 @@ std::string CalibCore::getCameraLidarCalibResult() {
   res_str << "    x: " << lidar_imu_pose.q_x << "\n";
   res_str << "    y: " << lidar_imu_pose.q_y << "\n";
   res_str << "    z: " << lidar_imu_pose.q_z << "\n";
-  res_str << "    w: " << lidar_imu_pose.q_w << "\n\n";
+  res_str << "    w: " << lidar_imu_pose.q_w << "\n";
+  res_str << "  euler:\n";
+  res_str << "    roll:  " << lidar_imu_pose.euler_vec(2) * 180.0 / M_PI << "\n";
+  res_str << "    pitch: " << lidar_imu_pose.euler_vec(1) * 180.0 / M_PI << "\n";
+  res_str << "    yaw:   " << lidar_imu_pose.euler_vec(0) * 180.0 / M_PI << "\n";
+  res_str << "\n";
 
   std::cout << std::endl;
   std::cout << res_str.str();
@@ -500,7 +560,8 @@ std::string CalibCore::getCalibResult() {
   switch (calib_status_) {
   case CalibStatus::None: break;
   case CalibStatus::CameraInt: return camera_calib_ptr_->getCalibResult();
-  case CalibStatus::Ext: return getCameraLidarCalibResult(); break;
+  case CalibStatus::Camera2Lidar: return getCameraLidarCalibResult(); break;
+  case CalibStatus::Camera2IMU: return getCameraLidarCalibResult(); break;
   default: break;
   }
   return "";
@@ -526,36 +587,41 @@ void CalibCore::clearExtCalibPose() {
   ext_calib_pose_count_ = 0;
 }
 
-void CalibCore::solveHandEyeCalibration(const std::vector<Eigen::Matrix4d>& matrix_A,
-                                        const std::vector<Eigen::Matrix4d>& matrix_B,
-                                        Eigen::Matrix4d& _transform_X) {
-  if (matrix_A.size() != matrix_B.size() || matrix_A.size() <= 3) {
-    return;
-  }
+Eigen::Matrix3d solveHandEyeRotation(const std::vector<Eigen::Matrix4d>& matrix_A,
+                                     const std::vector<Eigen::Matrix4d>& matrix_B) {
   // calculate R
   Eigen::Matrix3d M = Eigen::Matrix3d::Zero();
   for (std::size_t i = 0, m_size = matrix_A.size(); i < m_size; ++i) {
     const Eigen::Matrix3d R_A = matrix_A[i].block<3, 3>(0, 0);
     const Eigen::Matrix3d R_B = matrix_B[i].block<3, 3>(0, 0);
-    M += R_B * R_A.transpose();
+    Eigen::AngleAxis<double> angleAxis_A(R_A);
+    Eigen::AngleAxis<double> angleAxis_B(R_B);
+    double angle_A = angleAxis_A.angle() * 180.0 / M_PI;
+    double angle_B = angleAxis_B.angle() * 180.0 / M_PI;
+
+    // if (std::fabs(angle_A - angle_B) > 10) {
+    //   continue;
+    // }
+    // std::cout << "pose " << i << "    " << angle_A << ",    \t" << angle_B << std::endl;
+
+    Eigen::Matrix<double, 3, 1> rotationVector_A = angleAxis_A.angle() * angleAxis_A.axis();
+    Eigen::Matrix<double, 3, 1> rotationVector_B = angleAxis_B.angle() * angleAxis_B.axis();
+    M += rotationVector_B * rotationVector_A.transpose();
   }
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(M, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  const Eigen::Matrix3d R        = svd.matrixU() * svd.matrixV().transpose();
-  _transform_X.block<3, 3>(0, 0) = R;
+  Eigen::Matrix3d R_X = svd.matrixV() * svd.matrixU().transpose();
+  return R_X;
+}
 
-  // calculate t
-  Eigen::MatrixXd C(3 * matrix_A.size(), 3);
-  Eigen::VectorXd d(3 * matrix_A.size());
-
-  const Eigen::Matrix3d c = Eigen::Matrix3d::Identity() - R;
-  for (std::size_t i = 0, m_size = matrix_A.size(); i < m_size; ++i) {
-    const Eigen::Vector3d t_A = matrix_A[i].block<3, 1>(0, 3);
-    const Eigen::Vector3d t_B = matrix_B[i].block<3, 1>(0, 3);
-    C.block<3, 3>(3 * i, 0)   = c;
-    d.segment<3>(3 * i)       = t_B - R * t_A;
+void CalibCore::solveHandEyeCalibration(const std::vector<Eigen::Matrix4d>& matrix_A,
+                                        const std::vector<Eigen::Matrix4d>& matrix_B,
+                                        Eigen::Matrix4d& _transform_X) {
+  // A*X = X*B
+  if (matrix_A.size() != matrix_B.size() || matrix_A.size() < 2) {
+    return;
   }
-
-  const Eigen::Matrix<double, 3, 1> t = C.colPivHouseholderQr().solve(d);
-  _transform_X.block<3, 1>(0, 3)      = t;
+  Eigen::Matrix3d R_X = solveHandEyeRotation(matrix_A, matrix_B);
+  _transform_X.setIdentity();
+  _transform_X.block<3, 3>(0, 0) = R_X;
   return;
 }

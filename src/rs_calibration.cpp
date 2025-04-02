@@ -66,7 +66,7 @@ void RSCalibration::setupLayout() {
   setLayout(layout);
 
   // 暂时关闭Camera-Imu标定功能
-  ui_->btn_start_calib_->setEnabled(false);
+  ui_->btn_camera_imu_ext_->setEnabled(true);
 
   QString last_config_path = settings_.value("last_config_path", "").toString();
   std::cout << last_config_path.toStdString() << std::endl;
@@ -84,8 +84,8 @@ void RSCalibration::setupActions() {
 
   QObject::connect(ui_->btn_start_drive_, SIGNAL(clicked()), this, SLOT(startDriver()));
   QObject::connect(ui_->btn_camera_int_, SIGNAL(clicked()), this, SLOT(cameraIntrinsicsMode()));
-  QObject::connect(ui_->btn_ext_, SIGNAL(clicked()), this, SLOT(ExtrinsicsMode()));
-  QObject::connect(ui_->btn_start_calib_, SIGNAL(clicked()), this, SLOT(calibrate()));
+  QObject::connect(ui_->btn_camera_lidar_ext_, SIGNAL(clicked()), this, SLOT(cameraToLidarExtrinsicsMode()));
+  QObject::connect(ui_->btn_camera_imu_ext_, SIGNAL(clicked()), this, SLOT(cameraToIMUExtrinsicsMode()));
 
   QObject::connect(this, &RSCalibration::calibOutputUpdated, this, &RSCalibration::updateCalibOutput);
 }
@@ -172,7 +172,7 @@ void RSCalibration::imageCallback(const sensor_msgs::msg::Image::SharedPtr msg) 
 }
 
 void RSCalibration::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-  if (calib_status_ < CalibStatus::Ext) {
+  if (calib_status_ != CalibStatus::Camera2Lidar) {
     return;
   }
 
@@ -188,10 +188,20 @@ void RSCalibration::cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr
 }
 
 void RSCalibration::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
-  if (calib_status_ < CalibStatus::Ext) {
+  if (calib_status_ < CalibStatus::Camera2Lidar) {
     return;
   }
   calib_ptr_->setImuMsgInput(msg);
+
+  if (calib_status_ == CalibStatus::Camera2IMU && calib_ptr_->getBiasCollected() && !imu_triggered_) {
+    std::string str = "calibrating camera to imu extrinsics...";
+    str += "\n\n";
+    str += "imu bias has been calibrated...\n";
+    str += "please move AC1 according to the demo video";
+    emit calibOutputUpdated(QString::fromStdString(str));
+    imu_triggered_ = true;
+  }
+
   return;
 }
 
@@ -281,71 +291,41 @@ void RSCalibration::startDriver() {
 
 void RSCalibration::cameraIntrinsicsMode() {
   calib_ptr_->initCameraConfig();
-  calib_status_ = CalibStatus::CameraInt;
+  calib_status_   = CalibStatus::CameraInt;
+  std::string str = "calibrating camera intrinsics...";
+  str += "\n\n";
+  str += "collecting variable pose images...";
+  emit calibOutputUpdated(QString::fromStdString(str));
   ui_->btn_camera_int_->setEnabled(false);
-  ui_->btn_ext_->setEnabled(true);
-  return;
-  /*
-  std::cout << "img_msg_queue size: " << img_msg_queue_.size();
-  if (img_msg_queue_.empty()) {
-    RCLCPP_WARN(node_->get_logger(), "img_msg_queue is empty");
-    return;
-  }
-  RCLCPP_INFO(node_->get_logger(), "img_msg_queue size: %zu", img_msg_queue_.size());
-
-  auto img_msg = img_msg_queue_.back();
-  if (!img_msg || img_msg->data.empty()) {
-    std::cerr << "Received an invalid image message!" << std::endl;
-    return;
-  }
-
-  std::cout << "Image width: " << img_msg->width << ", height: " << img_msg->height << std::endl;
-  std::cout << "Image encoding: " << img_msg->encoding << std::endl;
-  std::cout << "Image step: " << img_msg->step << std::endl;
-  std::cout << "Expected step: " << img_msg->width * 3 << std::endl;  // assuming 3 channels (BGR)
-
-  if (img_msg->step < img_msg->width * 3) {
-    return;
-  }
-
-  auto cv_ptr = cv_bridge::toCvCopy(img_msg, img_msg->encoding);
-  auto img    = cv_ptr->image;
-
-  calib_ptr_->pushImage(img, img);
-
-  if (img.type() != CV_8UC3) {
-    RCLCPP_ERROR(node_->get_logger(), "Input image type is not CV_8UC3, but %d", img.type());
-  }
-
-  sensor_msgs::msg::Image::SharedPtr dst_msg =
-    cv_bridge::CvImage(std_msgs::msg::Header(), img_msg->encoding, img).toImageMsg();
-  img_detect_pub_->publish(*dst_msg);
-
-  showCalibProcess();
-  return;
-  */
-}
-
-void RSCalibration::ExtrinsicsMode() {
-  calib_status_ = CalibStatus::Ext;
-  ui_->btn_camera_int_->setEnabled(true);
-  ui_->btn_ext_->setEnabled(false);
+  ui_->btn_camera_lidar_ext_->setEnabled(true);
+  ui_->btn_camera_imu_ext_->setEnabled(true);
   return;
 }
 
-void RSCalibration::calibrate() {
-  return;
-  std::string str = "calibrating camera intrinsics...please wait";
+void RSCalibration::cameraToLidarExtrinsicsMode() {
+  calib_status_   = CalibStatus::Camera2Lidar;
+  std::string str = "calibrating camera to lidar extrinsics...";
+  str += "\n\n";
+  str += "collecting images and pointclouds...\n";
+  str += "please keep AC1 stationary";
   emit calibOutputUpdated(QString::fromStdString(str));
-
-  calib_ptr_->startCalib(calib_status_);
-
-  str = calib_ptr_->getCalibResult();
-  emit calibOutputUpdated(QString::fromStdString(str));
-
-  auto_calibrating_ = false;
-  ui_->btn_start_drive_->setEnabled(true);
   ui_->btn_camera_int_->setEnabled(true);
+  ui_->btn_camera_lidar_ext_->setEnabled(false);
+  ui_->btn_camera_imu_ext_->setEnabled(true);
+  return;
+}
+
+void RSCalibration::cameraToIMUExtrinsicsMode() {
+  calib_status_   = CalibStatus::Camera2IMU;
+  std::string str = "calibrating camera to imu extrinsics...";
+  str += "\n\n";
+  str += "collecting images and imu messages...\n";
+  str += "please keep AC1 stationary for at least 10s to calibrate imu bias";
+  emit calibOutputUpdated(QString::fromStdString(str));
+  ui_->btn_camera_int_->setEnabled(true);
+  ui_->btn_camera_lidar_ext_->setEnabled(true);
+  ui_->btn_camera_imu_ext_->setEnabled(false);
+  return;
 }
 
 void RSCalibration::updateCalibOutput(const QString& qstr) {
@@ -402,12 +382,10 @@ void RSCalibration::showBoardIndicator(const sensor_msgs::msg::Image::SharedPtr 
 
   auto cv_ptr  = cv_bridge::toCvCopy(img_msg, img_msg->encoding);
   auto raw_img = cv_ptr->image;
-  // cv::Mat raw_img = robosense::FromImageMsg(*img_msg);
   calib_ptr_->addBoardIndicator(raw_img);
 
   sensor_msgs::msg::Image::SharedPtr indicate_msg =
     cv_bridge::CvImage(std_msgs::msg::Header(), img_msg->encoding, raw_img).toImageMsg();
-  // sensor_msgs::msg::Image::SharedPtr indicate_msg = robosense::ToImageMsg(raw_img);
   img_indicate_pub_->publish(*indicate_msg);
 }
 
@@ -484,11 +462,19 @@ void RSCalibration::calibrateExtrinsics() {
   if (!calib_ptr_->isExtCalibReady() || img_msg_queue_.empty()) {
     return;
   }
-  if (calib_ptr_->getExtCalibPose() >= 1) {
+  size_t pose_num = 0;
+  if (calib_status_ == CalibStatus::Camera2Lidar) {
+    pose_num = 1;
+  } else if (calib_status_ == CalibStatus::Camera2IMU) {
+    pose_num = 9;
+  }
+
+  if (calib_ptr_->getExtCalibPose() >= pose_num) {
     std::cout << "calibrateExtrinsics" << std::endl;
     calib_ptr_->startCalib(calib_status_);
     std::cout << "finish calibrate extrinsics" << std::endl;
-    ui_->btn_ext_->setEnabled(true);
+    ui_->btn_camera_lidar_ext_->setEnabled(true);
+    ui_->btn_camera_imu_ext_->setEnabled(true);
     calib_status_ = CalibStatus::None;
 
     auto str = calib_ptr_->getCalibResult();
@@ -497,18 +483,21 @@ void RSCalibration::calibrateExtrinsics() {
   }
 
   calib_ptr_->setImageMsgInput(img_msg_queue_.back());
-  calib_ptr_->setPointcloudInput(cloud_queue_.back());
+  if (calib_status_ == CalibStatus::Camera2Lidar) {
+    calib_ptr_->setPointcloudInput(cloud_queue_.back());
+  }
   calib_ptr_->addExtCalibPose();
   calib_ptr_->setExtCalibReady(false);
 }
 
 void RSCalibration::autoCalibProcess() {
   while (auto_calibrating_) {
-
+    calib_ptr_->setCalibStatus(calib_status_);
     switch (calib_status_) {
     case CalibStatus::None: break;
     case CalibStatus::CameraInt: calibrateCameraIntrinsics(); break;
-    case CalibStatus::Ext: calibrateExtrinsics(); break;
+    case CalibStatus::Camera2Lidar: calibrateExtrinsics(); break;
+    case CalibStatus::Camera2IMU: calibrateExtrinsics(); break;
     default: break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -528,11 +517,9 @@ bool RSCalibration::autoCaptureImage() {
   }
 
   cv::Mat img = cv_bridge::toCvCopy(img_msg, img_msg->encoding)->image;
-  // cv::Mat img = robosense::FromImageMsg(*img_msg);
   if (calib_ptr_->autoPushImage(img)) {
     sensor_msgs::msg::Image::SharedPtr dst_msg =
       cv_bridge::CvImage(std_msgs::msg::Header(), img_msg->encoding, img).toImageMsg();
-    // sensor_msgs::msg::Image::SharedPtr dst_msg = robosense::ToImageMsg(img);
     img_detect_pub_->publish(*dst_msg);
     showCalibProcess();
     return true;

@@ -221,7 +221,6 @@ void LidarCalib::segmentBoardPoints(pcl::PointCloud<pcl::PointXYZI>::Ptr& segmen
     return;
   }
 
-
   // 提取平面点和背景点
   pcl::ExtractIndices<pcl::PointXYZI> extract;
 
@@ -276,8 +275,8 @@ void LidarCalib::normalizedPointsToVehicleCS(const pcl::PointCloud<pcl::PointXYZ
 
   double ceres_r[3] { rot_axis_vec[0], rot_axis_vec[1], rot_axis_vec[2] };
   double ceres_t[3] { center_p.x, center_p.y, center_p.z };
-  std::vector<double> upp_bound(3, M_PI / 1);
-  std::vector<double> low_bound(3, -M_PI / 1);
+  std::vector<double> r_upp_bound(3, M_PI / 1);
+  std::vector<double> r_low_bound(3, -M_PI / 1);
 
   for (auto cur_p : *input_points_ptr) {
     ceres::CostFunction* cost_function = new ceres::AutoDiffCostFunction<CostFunctor, 3, 3, 3>(new CostFunctor(cur_p));
@@ -285,9 +284,10 @@ void LidarCalib::normalizedPointsToVehicleCS(const pcl::PointCloud<pcl::PointXYZ
   }
 
   for (int i = 0; i < 3; ++i) {
-    problem.SetParameterLowerBound(ceres_r, i, low_bound[i]);
-    problem.SetParameterUpperBound(ceres_r, i, upp_bound[i]);
+    problem.SetParameterLowerBound(ceres_r, i, r_low_bound[i]);
+    problem.SetParameterUpperBound(ceres_r, i, r_upp_bound[i]);
   }
+  problem.SetParameterUpperBound(ceres_t, 0, -center_p.x + 0.3);
 
   ceres::Solver::Summary summary;
   ceres::Solve(option, &problem, &summary);
@@ -351,7 +351,7 @@ void LidarCalib::calibLidarExtrinsics(const pcl::PointCloud<pcl::PointXYZI>::Ptr
 
   std::vector<double> offset_rtvec = { 0.0, -M_PI / 2, 0.0, chess_len * 1.5, chess_len * 1.5, 0.0 };
   Eigen::Matrix4d offset_transform = robosense::calib::factory_calibration::getMatrixFromEulerPose(offset_rtvec);
-  lidar_board_transform  = offset_transform * lidar_center_transform;
+  lidar_board_transform            = offset_transform * lidar_center_transform;
 }
 
 }  // namespace lidar_calib
